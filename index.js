@@ -36,6 +36,7 @@
 
 const { getContext, createTracerCore } = require('./src/tracer');
 const { createLogger }                 = require('./src/logger');
+const { expressMiddleware, fastifyPlugin } = require('./src/middleware');
 
 // ── Default instance (module singleton) ──────────────────────────────────────
 // Most applications only need this. The logger is created lazily on first use
@@ -99,14 +100,23 @@ function traceAll(fns) {
  */
 function createTracer(opts = {}) {
   if (typeof opts !== 'object' || opts === null || Array.isArray(opts)) {
-    throw new TypeError('createTracer: opts must be a plain object');
+    // Don't throw in production — fall back to defaults and warn
+    console.warn('[fn-tracer] createTracer: opts must be a plain object, ignoring and using defaults');
+    opts = {};
   }
 
-  const log = opts.logger || createLogger({
-    level:  opts.logLevel  || 'debug',
-    format: opts.logFormat || 'pretty',
-    transports: opts.transports,
-  });
+  let log;
+  try {
+    log = opts.logger || createLogger({
+      level:      typeof opts.logLevel === 'string'  ? opts.logLevel  : 'debug',
+      format:     opts.logFormat === 'json'          ? 'json'         : 'pretty',
+      transports: Array.isArray(opts.transports)     ? opts.transports : undefined,
+      badges:     opts.badges && typeof opts.badges === 'object' ? opts.badges : null,
+    });
+  } catch (e) {
+    console.warn('[fn-tracer] createTracer: failed to create logger, falling back to defaults:', e.message);
+    log = createLogger();
+  }
 
   const core = createTracerCore(log);
 
@@ -134,6 +144,9 @@ module.exports = {
   // Factory
   createTracer,
   createLogger,
+  // Middleware
+  expressMiddleware,
+  fastifyPlugin,
   // Logger — use getter so it is lazily initialised but always accessible
   get logger() { return getDefaultLogger(); },
 };

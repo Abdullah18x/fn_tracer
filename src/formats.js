@@ -14,6 +14,7 @@ const A = {
   blue:    '\x1b[34m',
   magenta: '\x1b[35m',
   cyan:    '\x1b[36m',
+  white:   '\x1b[37m',
   gray:    '\x1b[90m',
 };
 
@@ -35,13 +36,39 @@ function timestamp() {
 
 // ── Level badges ──────────────────────────────────────────────────────────────
 
-const LEVEL_BADGE = {
+const DEFAULT_LEVEL_BADGES = {
   error:   c(A.bold + A.red,     ' ERROR '),
   warn:    c(A.bold + A.yellow,  '  WARN '),
   info:    c(A.bold + A.green,   '  INFO '),
   debug:   c(A.bold + A.blue,    ' DEBUG '),
   verbose: c(A.bold + A.cyan,    '  VERB '),
 };
+
+/**
+ * Merges user-supplied badge definitions with the defaults.
+ * Each entry can be:
+ *   - a plain string label  e.g. { notice: 'NOTE' }  → rendered with default styling
+ *   - an already-styled ANSI string  e.g. { notice: '\x1b[35mNOTE\x1b[0m' }
+ *   - an object { label, color } where color is one of the A keys
+ *     e.g. { notice: { label: 'NOTE', color: 'magenta' } }
+ *
+ * @param {Record<string, string | { label: string, color: string }>} [customBadges]
+ * @returns {Record<string, string>}
+ */
+function buildBadges(customBadges) {
+  const badges = { ...DEFAULT_LEVEL_BADGES };
+  if (!customBadges || typeof customBadges !== 'object') return badges;
+  for (const [level, value] of Object.entries(customBadges)) {
+    if (typeof value === 'string') {
+      // Plain string — pad to 7 chars for alignment and apply bold white
+      badges[level] = c(A.bold + A.white, value.padStart(7));
+    } else if (value && typeof value === 'object' && value.label) {
+      const ansiColor = A[value.color] || '';
+      badges[level] = c(A.bold + ansiColor, value.label.padStart(7));
+    }
+  }
+  return badges;
+}
 
 const SPAN_BADGE = {
   enter: c(A.bold + A.green,  ' → '),
@@ -58,7 +85,8 @@ const SPAN_BADGE = {
  * @param {object} winston - the winston module (passed in to avoid a hard dep at format level)
  * @returns {import('winston').Logform.Format}
  */
-function prettyFormat(winston) {
+function prettyFormat(winston, customBadges) {
+  const LEVEL_BADGE = buildBadges(customBadges);
   return winston.format.printf((info) => {
     const ctx    = getContext();
     const status = info.status || '';
@@ -112,30 +140,30 @@ function prettyFormat(winston) {
  */
 function jsonFormat(winston) {
   return winston.format.printf((info) => {
-    const ctx = getContext();
-    const entry = {
-      timestamp: new Date().toISOString(),
-      level:     info.level,
-      message:   info.message,
-      // trace context — all undefined-safe
-      traceId:             ctx ? ctx.traceId             : undefined,
-      spanId:              ctx ? ctx.spanId              : undefined,
-      rootSpanId:          ctx ? ctx.rootSpanId          : undefined,
-      rootFunctionName:    ctx ? ctx.rootFunctionName    : undefined,
-      currentFunctionName: ctx ? ctx.currentFunctionName : undefined,
-      parentFunctionName:  ctx ? ctx.parentFunctionName  : undefined,
-      depth:               ctx ? ctx.depth               : undefined,
-      path:                ctx ? ctx.path.join(' > ')    : undefined,
-      // span lifecycle fields
-      status:       info.status       || undefined,
-      duration:     info.duration     != null ? info.duration : undefined,
-      errorMessage: info.errorMessage || undefined,
-      errorStack:   info.errorStack   || undefined,
-    };
-
-    // strip undefined keys so JSON stays clean
-    return JSON.stringify(entry, (_, v) => v === undefined ? undefined : v);
+    try {
+      const ctx = getContext();
+      const entry = {
+        timestamp: new Date().toISOString(),
+        level:     info.level,
+        message:   info.message,
+        traceId:             ctx ? ctx.traceId             : undefined,
+        spanId:              ctx ? ctx.spanId              : undefined,
+        rootSpanId:          ctx ? ctx.rootSpanId          : undefined,
+        rootFunctionName:    ctx ? ctx.rootFunctionName    : undefined,
+        currentFunctionName: ctx ? ctx.currentFunctionName : undefined,
+        parentFunctionName:  ctx ? ctx.parentFunctionName  : undefined,
+        depth:               ctx ? ctx.depth               : undefined,
+        path:                ctx ? ctx.path.join(' > ')    : undefined,
+        status:       info.status       || undefined,
+        duration:     info.duration     != null ? info.duration : undefined,
+        errorMessage: info.errorMessage || undefined,
+        errorStack:   info.errorStack   || undefined,
+      };
+      return JSON.stringify(entry, (_, v) => v === undefined ? undefined : v);
+    } catch (_) {
+      return JSON.stringify({ level: info.level || 'info', message: String(info.message || '') });
+    }
   });
 }
 
-module.exports = { prettyFormat, jsonFormat };
+module.exports = { prettyFormat, jsonFormat, buildBadges, ANSI: A };

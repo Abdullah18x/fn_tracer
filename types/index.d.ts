@@ -41,11 +41,17 @@ export interface TraceLogger {
   info(message: string, meta?: Record<string, unknown>): void;
   error(message: string, meta?: Record<string, unknown>): void;
   warn?(message: string, meta?: Record<string, unknown>): void;
+  notice?(message: string, meta?: Record<string, unknown>): void;
   debug?(message: string, meta?: Record<string, unknown>): void;
   [key: string]: any;
 }
 
 // ── createLogger options ──────────────────────────────────────────────────────
+
+/** A custom badge definition for a log level. */
+export type BadgeDefinition =
+  | string                              // plain label, e.g. ' NOTE '
+  | { label: string; color: string };   // label + ANSI color key, e.g. { label: ' NOTE ', color: 'magenta' }
 
 export interface CreateLoggerOptions {
   /** Minimum log level. Defaults to 'debug'. */
@@ -54,6 +60,17 @@ export interface CreateLoggerOptions {
   format?: 'pretty' | 'json';
   /** Override Winston transports. Defaults to Console. */
   transports?: any[];
+  /**
+   * Custom level badges for pretty output.
+   * Keys are log level names, values are either a plain string label
+   * or an object with label + color (ANSI color key).
+   * @example
+   * badges: {
+   *   notice: { label: ' NOTE ', color: 'magenta' },
+   *   silly:  ' SILLY '
+   * }
+   */
+  badges?: Record<string, BadgeDefinition>;
 }
 
 // ── createTracer options ──────────────────────────────────────────────────────
@@ -71,6 +88,17 @@ export interface CreateTracerOptions {
   logFormat?: 'pretty' | 'json';
   /** Override Winston transports for the built-in logger. */
   transports?: any[];
+  /**
+   * Custom level badges for pretty output.
+   * Keys are log level names, values are either a plain string label
+   * or an object with label + color (ANSI color key).
+   * @example
+   * badges: {
+   *   notice: { label: ' NOTE ', color: 'magenta' },
+   *   silly:  ' SILLY '
+   * }
+   */
+  badges?: Record<string, BadgeDefinition>;
 }
 
 // ── TracerInstance ────────────────────────────────────────────────────────────
@@ -148,3 +176,58 @@ export declare function createTracer(opts?: CreateTracerOptions): TracerInstance
  * Useful if you want a configured logger without the full createTracer API.
  */
 export declare function createLogger(opts?: CreateLoggerOptions): TraceLogger;
+
+// ── Middleware ────────────────────────────────────────────────────────────────
+
+export interface MiddlewareOptions {
+  /**
+   * Name for the root span. Can be a static string or a function that
+   * receives the request and returns a string.
+   * Defaults to "METHOD /path" (e.g. "POST /api/login").
+   */
+  requestName?: string | ((req: any) => string);
+  /**
+   * Whether to log request enter/exit spans. Defaults to true.
+   */
+  logRequests?: boolean;
+  /**
+   * Logger instance to use for request logs.
+   * Uses the fn-tracer default logger if not provided.
+   */
+  logger?: TraceLogger;
+}
+
+/**
+ * Express/Connect middleware that starts a root trace span for every
+ * incoming HTTP request.
+ *
+ * Every traceAll/withTrace call during the request becomes a child span.
+ *
+ * @example
+ * import express from 'express';
+ * import { expressMiddleware, logger } from 'fn-tracer';
+ *
+ * const app = express();
+ * app.use(expressMiddleware({ logger, logRequests: true }));
+ */
+export declare function expressMiddleware(opts?: MiddlewareOptions): (
+  req: any,
+  res: any,
+  next: () => void
+) => void;
+
+/**
+ * Fastify plugin that starts a root trace span for every incoming request.
+ *
+ * @example
+ * import Fastify from 'fastify';
+ * import { fastifyPlugin, logger } from 'fn-tracer';
+ *
+ * const fastify = Fastify();
+ * await fastify.register(fastifyPlugin, { logger, logRequests: true });
+ */
+export declare function fastifyPlugin(
+  fastify: any,
+  opts: MiddlewareOptions,
+  done: () => void
+): void;
