@@ -1,0 +1,51 @@
+{
+  "name": "fn-tracer",
+  "version": "1.0.0",
+  "description": "Function-level async tracing for Node.js using AsyncLocalStorage. Zero boilerplate — wrap your module exports once with traceAll() and every function gets automatic span tracking, context propagation across await/setTimeout/Promise, and structured logging.",
+  "main": "index.js",
+  "types": "types/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./index.js",
+      "types": "./types/index.d.ts"
+    }
+  },
+  "files": [
+    "index.js",
+    "src/",
+    "types/"
+  ],
+  "scripts": {
+    "test": "node --test test/tracer.test.js",
+    "test:watch": "node --test --watch test/tracer.test.js"
+  },
+  "keywords": [
+    "tracing",
+    "async-local-storage",
+    "als",
+    "distributed-tracing",
+    "logging",
+    "winston",
+    "observability",
+    "apm",
+    "span",
+    "trace-context",
+    "async-hooks"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "abdullah18x",
+  "license": "MIT",
+  "peerDependencies": {
+    "winston": ">=3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "winston": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "winston": "^3.11.0"
+  }
+}

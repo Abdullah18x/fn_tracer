@@ -1,0 +1,8 @@
+# Tests — not needed by consumers
+test/
+
+# Internal dev files
+.DS_Store
+*.log
+npm-debug.log*
+node_modules/
