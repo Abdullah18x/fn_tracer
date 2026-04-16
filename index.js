@@ -121,11 +121,10 @@ function createTracer(opts = {}) {
 // ── Lazy default logger accessor ─────────────────────────────────────────────
 // Exposed so callers can do:  const { logger } = require('fn-tracer')
 // and get the same logger instance that withTrace/traceAll use by default.
-
-Object.defineProperty(module.exports, 'logger', {
-  get() { return (getDefaultTracer(), _defaultLogger); },
-  enumerable: true,
-});
+function getDefaultLogger() {
+  getDefaultTracer(); // ensure _defaultLogger is initialised
+  return _defaultLogger;
+}
 
 module.exports = {
   // Core API
@@ -135,5 +134,6 @@ module.exports = {
   // Factory
   createTracer,
   createLogger,
-  // logger is defined via defineProperty above
+  // Logger — use getter so it is lazily initialised but always accessible
+  get logger() { return getDefaultLogger(); },
 };
